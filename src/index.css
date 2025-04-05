@@ -21,3 +21,7 @@ body::-webkit-scrollbar {
 .no-scrollbar::-webkit-scrollbar {
   display: none; /* Chrome, Safari, and Opera */
 }
+
+.search-bar {
+  padding-top: env(safe-area-inset-top, 20px); /* Ensures space below the Dynamic Island */
+}

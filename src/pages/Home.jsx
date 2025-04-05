@@ -81,6 +81,25 @@ function Home() {
     }
   }, [posts, setPosts]);
 
+  const [topPadding, setTopPadding] = useState(10); // Default padding
+
+  useEffect(() => {
+    const checkIphoneWithDynamicIsland = () => {
+      const userAgent = navigator.userAgent;
+      const isIphone = /iPhone/.test(userAgent);
+      const isDynamicIsland = window.innerWidth >= 375 && window.innerHeight >= 812;
+
+      if (isIphone && isDynamicIsland) {
+        setTopPadding(40); // Add extra padding for Dynamic Island
+      }
+    };
+
+    checkIphoneWithDynamicIsland();
+    window.addEventListener("resize", checkIphoneWithDynamicIsland);
+
+    return () => window.removeEventListener("resize", checkIphoneWithDynamicIsland);
+  }, []);
+
   const loadMorePosts = () => {
     if (loading) return;
     setLoading(true);
@@ -151,9 +170,46 @@ function Home() {
   };
 
   return (
+    <>
+    <div className="block h-24 " style={{ paddingTop: `${topPadding}px` }}>
+      <div className="max-w-xs sm:max-w-sm md:max-w-md mx-auto mt-3 search-bar ">
+        <div className="flex items-center bg-gray-600 rounded-full">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="20"
+            height="20"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className="text-gray-400 ml-4"
+          >
+            <circle cx="11" cy="11" r="8"></circle>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+          </svg>
+          <input
+            type="text"
+            placeholder="Search"
+            className="w-full bg-transparent text-white px-4 py-3 focus:outline-none placeholder-gray-400"
+          />
+          <button className="px-6 py-3 text-white rounded-full transition-colors">
+            <svg
+              className="w-6 h-6"
+              fill="currentColor"
+              viewBox="0 0 24 24"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path d="M10.5 3a7.5 7.5 0 015.96 12.28l4.53 4.53a1 1 0 01-1.42 1.42l-4.53-4.53A7.5 7.5 0 1110.5 3zm0 2a5.5 5.5 0 100 11 5.5 5.5 0 000-11z" />
+            </svg>
+          </button>
+        </div>
+      </div>
+    </div>
     <div
       ref={containerRef}
-      className="p-4 pt-2 pb-16 overflow-y-auto h-screen no-scrollbar" // Added no-scrollbar class
+      className="p-4 pt-2 mt-4 pb-16 overflow-y-auto h-screen no-scrollbar" // Added no-scrollbar class
     >
       <Masonry
         breakpointCols={breakpointCols}
@@ -208,6 +264,7 @@ function Home() {
      </div>
       )}
     </div>
+    </>
   );
 }
 

@@ -33,7 +33,7 @@ function Navbar() {
           <path d="M12 4a1 1 0 011 1v6h6a1 1 0 110 2h-6v6a1 1 0 11-2 0v-6H5a1 1 0 110-2h6V5a1 1 0 011-1z" />
         </svg>
       </Link>
-      <Link to="/login" className="text-gray-600 hover:text-black">
+      <Link to="/profile" className="text-gray-600 hover:text-black">
         <svg
           className="w-6 h-6"
           fill="currentColor"
