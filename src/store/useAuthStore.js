@@ -1,3 +1,4 @@
+// useAuthStore.js
 import { create } from "zustand";
 
 const useAuthStore = create((set, get) => ({
@@ -5,20 +6,26 @@ const useAuthStore = create((set, get) => ({
   user: null,
 
   setToken: (token) => {
-    set({ token });
+    console.log('Setting token:', token); // Debug log
     localStorage.setItem("token", token);
+    set({ token });
   },
 
   clearToken: () => {
-    set({ token: null, user: null });
+    console.log('Clearing token'); // Debug log
     localStorage.removeItem("token");
+    set({ token: null, user: null });
   },
 
-  setUser: (user) => set({ user }),
+  setUser: (user) => {
+    console.log('Setting user:', user); // Debug log
+    set({ user });
+  },
 
-  // Computed property
   get isAuthenticated() {
-    return !!get().token;
+    const token = get().token;
+    console.log('Checking isAuthenticated, token:', token); // Debug log
+    return !!token;
   },
 }));
 

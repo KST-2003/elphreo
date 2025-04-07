@@ -2,42 +2,55 @@ import React, { useState, useEffect } from 'react';
 import logo from "../assets/logo.PNG";
 import google from "../assets/google.PNG";
 import apple from "../assets/apple.PNG";
-import useAuthStore from "../store/useAuthStore";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
+import {
+  setToken,
+  getToken,
+  removeToken,
+  setJustLoggedIn,
+  getJustLoggedIn,
+  clearJustLoggedIn,
+} from '../store/storage';
+
+let hasRunAutoLogout = false; // Flag outside the component instance
 
 const Login = () => {
-  const { token, clearToken } = useAuthStore();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const setToken = useAuthStore((state) => state.setToken);
   const navigate = useNavigate();
 
-  useEffect(() => {
-    const justLoggedIn = sessionStorage.getItem("justLoggedIn");
+  // Custom logic to run only once when component is first initialized
+  if (!hasRunAutoLogout) {
+    hasRunAutoLogout = true;
 
-    const autoLogout = async () => {
-      if (token && !justLoggedIn) {
+    (async () => {
+      const justLoggedIn = await getJustLoggedIn();
+
+      if (justLoggedIn) {
+        console.log("Skipping auto-logout — user just logged in.");
+        await clearJustLoggedIn();
+        return;
+      }
+
+      const token = await getToken();
+      if (token) {
         try {
-          await axios.post("http://127.0.0.1:8000/api/logout", null, {
+          await axios.post('http://127.0.0.1:8000/api/logout', null, {
             headers: {
               Authorization: `Bearer ${token}`,
-              Accept: "application/json",
+              Accept: 'application/json',
             },
           });
         } catch (error) {
-          console.error("Error during auto-logout:", error);
+          console.error('Auto-logout failed:', error);
         } finally {
-          clearToken();
+          await removeToken();
+          console.log('Token removed on login screen');
         }
       }
-
-      // Always clear this flag after running
-      sessionStorage.removeItem("justLoggedIn");
-    };
-
-    autoLogout();
-  }, [token, clearToken]);
+    })();
+  }
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -49,27 +62,23 @@ const Login = () => {
         {
           headers: {
             'Content-Type': 'application/json',
-            'Accept': 'application/json',
+            Accept: 'application/json',
           },
         }
       );
 
       const { token } = response.data;
-      console.log('Login successful:', token);
 
-      setToken(token);
-
-      // Prevent auto-logout after login
-      sessionStorage.setItem("justLoggedIn", "true");
-      console.log("Navigating...");
-      navigate('/');
+      if (token) {
+        await setToken(token);
+        await setJustLoggedIn();
+        console.log('Token set and just logged in flag set');
+        navigate('/');
+      } else {
+        console.error('No token received');
+      }
     } catch (error) {
       console.error('Login failed:', error.response?.data || error.message);
-
-      if (error.response?.status === 422) {
-        const validationErrors = error.response.data.errors;
-        console.log('Validation Errors:', validationErrors);
-      }
     }
   };
 
@@ -83,14 +92,14 @@ const Login = () => {
             placeholder="Username (Email)"
             className="w-full p-3 mb-4 text-white bg-gray-800 rounded-lg focus:outline-none"
             value={email}
-            onChange={(e) => setEmail(e.target.value)}  // Update email state
+            onChange={(e) => setEmail(e.target.value)}
           />
           <input
             type="password"
             placeholder="Password"
             className="w-full p-3 mb-4 text-white bg-gray-800 rounded-lg focus:outline-none"
             value={password}
-            onChange={(e) => setPassword(e.target.value)}  // Update password state
+            onChange={(e) => setPassword(e.target.value)}
           />
           <button
             type="submit"
