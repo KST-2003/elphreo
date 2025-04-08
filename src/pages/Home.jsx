@@ -2,6 +2,7 @@ import { useEffect, useState, useRef } from "react";
 import Masonry from "react-masonry-css";
 import useStore from "../store/position";
 import { Spinner } from "@material-tailwind/react";
+import SafeTopWrapper from "../components/SafeTopWrapper";
 
 function Home() {
   const posts = useStore((state) => state.posts);
@@ -81,25 +82,6 @@ function Home() {
     }
   }, [posts, setPosts]);
 
-  const [topPadding, setTopPadding] = useState(10); // Default padding
-
-  useEffect(() => {
-    const checkIphoneWithDynamicIsland = () => {
-      const userAgent = navigator.userAgent;
-      const isIphone = /iPhone/.test(userAgent);
-      const isDynamicIsland = window.innerWidth >= 375 && window.innerHeight >= 812;
-
-      if (isIphone && isDynamicIsland) {
-        setTopPadding(40); // Add extra padding for Dynamic Island
-      }
-    };
-
-    checkIphoneWithDynamicIsland();
-    window.addEventListener("resize", checkIphoneWithDynamicIsland);
-
-    return () => window.removeEventListener("resize", checkIphoneWithDynamicIsland);
-  }, []);
-
   const loadMorePosts = () => {
     if (loading) return;
     setLoading(true);
@@ -171,99 +153,100 @@ function Home() {
 
   return (
     <>
-    <div className="block h-24 " style={{ paddingTop: `${topPadding}px` }}>
-      <div className="max-w-xs sm:max-w-sm md:max-w-md mx-auto mt-3 search-bar ">
-        <div className="flex items-center bg-gray-600 rounded-full">
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            width="20"
-            height="20"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className="text-gray-400 ml-4"
-          >
-            <circle cx="11" cy="11" r="8"></circle>
-            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-          </svg>
-          <input
-            type="text"
-            placeholder="Search"
-            className="w-full bg-transparent text-white px-4 py-3 focus:outline-none placeholder-gray-400"
-          />
-          <button className="px-6 py-3 text-white rounded-full transition-colors">
+      <SafeTopWrapper>
+        <div className="max-w-xs sm:max-w-sm md:max-w-md mx-auto mt-3 search-bar">
+          <div className="flex items-center bg-gray-600 rounded-full">
             <svg
-              className="w-6 h-6"
-              fill="currentColor"
-              viewBox="0 0 24 24"
               xmlns="http://www.w3.org/2000/svg"
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className="text-gray-400 ml-4"
             >
-              <path d="M10.5 3a7.5 7.5 0 015.96 12.28l4.53 4.53a1 1 0 01-1.42 1.42l-4.53-4.53A7.5 7.5 0 1110.5 3zm0 2a5.5 5.5 0 100 11 5.5 5.5 0 000-11z" />
+              <circle cx="11" cy="11" r="8"></circle>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
             </svg>
-          </button>
-        </div>
-      </div>
-    </div>
-    <div
-      ref={containerRef}
-      className="p-4 pt-2 mt-4 pb-16 overflow-y-auto h-screen no-scrollbar" // Added no-scrollbar class
-    >
-      <Masonry
-        breakpointCols={breakpointCols}
-        className="flex -ml-4"
-        columnClassName="pl-4"
-      >
-        {posts.map((post) => (
-          <div
-            key={post.id}
-            className="bg-white rounded-lg shadow-md overflow-hidden mb-4"
-          >
-            <img
-              src={post.image}
-              alt={post.title}
-              className="w-full h-auto object-cover"
+            <input
+              type="text"
+              placeholder="Search"
+              className="w-full bg-transparent text-white px-4 py-3 focus:outline-none placeholder-gray-400"
             />
-            <div className="p-2">
-              <p className="text-sm font-semibold">{post.title}</p>
-              <p className="text-xs text-gray-600">
-                {expandedPost === post.id ? (
-                  post.description
-                ) : (
-                  <>
-                    {truncateDescription(post.description)}{" "}
-                    {post.description.split(" ").length > 10 && (
-                      <span
-                        onClick={() => setExpandedPost(post.id)}
-                        className="bold cursor-pointer hover:underline"
-                      >
-                        See more
-                      </span>
-                    )}
-                  </>
-                )}
-                {expandedPost === post.id && (
-                  <span
-                    onClick={() => setExpandedPost(null)}
-                    className="cursor-pointer hover:underline ml-1"
-                  >
-                    See less
-                  </span>
-                )}
-              </p>
-            </div>
+            <button className="px-6 py-3 text-white rounded-full transition-colors">
+              <svg
+                className="w-6 h-6"
+                fill="currentColor"
+                viewBox="0 0 24 24"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path d="M10.5 3a7.5 7.5 0 015.96 12.28l4.53 4.53a1 1 0 01-1.42 1.42l-4.53-4.53A7.5 7.5 0 1110.5 3zm0 2a5.5 5.5 0 100 11 5.5 5.5 0 000-11z" />
+              </svg>
+            </button>
           </div>
-        ))}
-      </Masonry>
-      <div ref={observerRef} className="h-10" />
-      {loading && (
-       <div className="mb-5 items-center justify-center flex">
-       <Spinner className="w-8 h-8"/>
-     </div>
-      )}
-    </div>
+        </div>
+      </SafeTopWrapper>
+
+      <div
+        ref={containerRef}
+        className="p-4 pt-2 mt-4 pb-16 overflow-y-auto h-screen no-scrollbar"
+      >
+        <Masonry
+          breakpointCols={breakpointCols}
+          className="flex -ml-4"
+          columnClassName="pl-4"
+        >
+          {posts.map((post) => (
+            <div
+              key={post.id}
+              className="bg-white rounded-lg shadow-md overflow-hidden mb-4"
+            >
+              <img
+                src={post.image}
+                alt={post.title}
+                className="w-full h-auto object-cover"
+              />
+              <div className="p-2">
+                <p className="text-sm font-semibold">{post.title}</p>
+                <p className="text-xs text-gray-600">
+                  {expandedPost === post.id ? (
+                    post.description
+                  ) : (
+                    <>
+                      {truncateDescription(post.description)}{" "}
+                      {post.description.split(" ").length > 10 && (
+                        <span
+                          onClick={() => setExpandedPost(post.id)}
+                          className="bold cursor-pointer hover:underline"
+                        >
+                          See more
+                        </span>
+                      )}
+                    </>
+                  )}
+                  {expandedPost === post.id && (
+                    <span
+                      onClick={() => setExpandedPost(null)}
+                      className="cursor-pointer hover:underline ml-1"
+                    >
+                      See less
+                    </span>
+                  )}
+                </p>
+              </div>
+            </div>
+          ))}
+        </Masonry>
+        <div ref={observerRef} className="h-10" />
+        {loading && (
+          <div className="mb-5 items-center justify-center flex">
+            <Spinner className="w-8 h-8" />
+          </div>
+        )}
+      </div>
     </>
   );
 }

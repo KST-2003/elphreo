@@ -6,6 +6,8 @@ body {
   overflow: hidden;
   -ms-overflow-style: none;
   scrollbar-width: none;
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
 }
 
 body::-webkit-scrollbar {
@@ -22,6 +24,3 @@ body::-webkit-scrollbar {
   display: none; /* Chrome, Safari, and Opera */
 }
 
-.search-bar {
-  padding-top: env(safe-area-inset-top, 20px); /* Ensures space below the Dynamic Island */
-}

@@ -5,74 +5,73 @@ import apple from "../assets/apple.PNG";
 import useAuthStore from "../store/useAuthStore";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
+import { Preferences } from "@capacitor/preferences";
+import { baseURL } from '../api/api';
 
 const Login = () => {
-  const { token, clearToken } = useAuthStore();
+  const { token, setToken, clearToken } = useAuthStore();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const setToken = useAuthStore((state) => state.setToken);
   const navigate = useNavigate();
 
-  useEffect(() => {
-    const justLoggedIn = sessionStorage.getItem("justLoggedIn");
+  // Capacitor Storage Helpers
+  const setJustLoggedInFlag = async (value) => {
+    console.log('[Storage] Setting justLoggedIn to:', value);
+    await Preferences.set({ key: 'justLoggedIn', value: value.toString() });
+  };
 
-    const autoLogout = async () => {
-      if (token && !justLoggedIn) {
-        try {
-          await axios.post("http://127.0.0.1:8000/api/logout", null, {
-            headers: {
-              Authorization: `Bearer ${token}`,
-              Accept: "application/json",
-            },
-          });
-        } catch (error) {
-          console.error("Error during auto-logout:", error);
-        } finally {
-          clearToken();
-        }
-      }
+  const getJustLoggedInFlag = async () => {
+    const { value } = await Preferences.get({ key: 'justLoggedIn' });
+    console.log('[Storage] Fetched justLoggedIn value:', value);
+    return value === 'true';
+  };
 
-      // Always clear this flag after running
-      sessionStorage.removeItem("justLoggedIn");
-    };
+  const removeJustLoggedInFlag = async () => {
+    console.log('[Storage] Removing justLoggedIn flag');
+    await Preferences.remove({ key: 'justLoggedIn' });
+  };
 
-    autoLogout();
-  }, [token, clearToken]);
+
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    console.log('[Login] handleSubmit triggered');
+    console.log('[Login] Email:', email);
+    console.log('[Login] Password:', password);
 
     try {
       const response = await axios.post(
-        'http://127.0.0.1:8000/api/login',
+        `${baseURL}/login`,
         { email, password },
         {
           headers: {
             'Content-Type': 'application/json',
-            'Accept': 'application/json',
+            Accept: 'application/json',
           },
         }
       );
 
-      const { token } = response.data;
-      console.log('Login successful:', token);
+      const { token: newToken } = response.data;
+      console.log('[Login] Login successful, token received:', newToken);
 
-      setToken(token);
+      await setToken(newToken);
+      console.log('[Login] Token stored in Zustand and Capacitor');
 
-      // Prevent auto-logout after login
-      sessionStorage.setItem("justLoggedIn", "true");
-      console.log("Navigating...");
+      await setJustLoggedInFlag(true);
+      console.log('[Login] justLoggedIn flag set to true');
+
+      console.log('[Login] Navigating to /');
       navigate('/');
+      console.log('[Login] Called navigate("/")');
     } catch (error) {
-      console.error('Login failed:', error.response?.data || error.message);
+      const errMsg = error.response?.data?.message || error.message;
+      console.error('[Login] Login failed:', errMsg);
 
       if (error.response?.status === 422) {
-        const validationErrors = error.response.data.errors;
-        console.log('Validation Errors:', validationErrors);
+        console.log('[Login] Validation Errors:', error.response.data.errors);
       }
     }
   };
-
   return (
     <div className="flex items-center justify-center min-h-screen bg-black px-6">
       <div className="w-full max-w-sm text-center">
@@ -83,14 +82,14 @@ const Login = () => {
             placeholder="Username (Email)"
             className="w-full p-3 mb-4 text-white bg-gray-800 rounded-lg focus:outline-none"
             value={email}
-            onChange={(e) => setEmail(e.target.value)}  // Update email state
+            onChange={(e) => setEmail(e.target.value)}
           />
           <input
             type="password"
             placeholder="Password"
             className="w-full p-3 mb-4 text-white bg-gray-800 rounded-lg focus:outline-none"
             value={password}
-            onChange={(e) => setPassword(e.target.value)}  // Update password state
+            onChange={(e) => setPassword(e.target.value)}
           />
           <button
             type="submit"

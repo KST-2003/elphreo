@@ -2,10 +2,12 @@ import React, { useState , useEffect } from 'react';
 import Logout from '../components/Logout.jsx';
 import useAuthStore from '../store/useAuthStore.js';
 import axios from 'axios';
+import { baseURL } from '../api/api';
 
 function Profile() {
   const [activeTab, setActiveTab] = useState('Posts');
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(true); // For user data fetching
+  const [authLoading, setAuthLoading] = useState(true); // For auth initialization
   const [error, setError] = useState(null);
 
   // Get token, user, and setUser from Zustand store
@@ -17,15 +19,22 @@ function Profile() {
   const tabs = ['Posts', 'Noti', 'Chats'];
 
   useEffect(() => {
-    const fetchUserData = async () => {
-      if (!isAuthenticated) {
-        setError('Please log in to view your profile.');
-        setLoading(false);
-        return;
-      }
-  
+    const initializeAndFetch = async () => {
       try {
-        const response = await axios.get('http://127.0.0.1:8000/api/user', {
+        // Ensure token is loaded from storage
+        if (token === null) {
+          await useAuthStore.getState().init();
+        }
+        setAuthLoading(false); // Auth check complete
+
+        if (!isAuthenticated) {
+          setError('Please log in to view your profile.');
+          setLoading(false);
+          return;
+        }
+
+        // Fetch user data
+        const response = await axios.get(`${baseURL}/user`, {
           headers: {
             Authorization: `Bearer ${token}`,
             Accept: 'application/json',
@@ -51,10 +60,23 @@ function Profile() {
         setLoading(false);
       }
     };
-  
-    fetchUserData();
+
+    initializeAndFetch();
   }, [token, isAuthenticated, setUser]);
 
+  console.log('Token:', token);
+  console.log('IsAuthenticated:', isAuthenticated);
+
+  // Show loading while checking auth
+  if (authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        Checking authentication...
+      </div>
+    );
+  }
+
+  // Show login prompt if not authenticated
   if (!isAuthenticated) {
     return (
       <div className="min-h-screen flex items-center justify-center text-gray-500">
@@ -63,12 +85,22 @@ function Profile() {
     );
   }
 
+  // Show loading while fetching user data
   if (loading) {
-    return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        Loading profile...
+      </div>
+    );
   }
 
+  // Show error if fetch fails
   if (error) {
-    return <div className="min-h-screen flex items-center justify-center text-red-500">{error}</div>;
+    return (
+      <div className="min-h-screen flex items-center justify-center text-red-500">
+        {error}
+      </div>
+    );
   }
     return (
       <div className="min-h-screen bg-white">
