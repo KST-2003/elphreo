@@ -1,43 +1,82 @@
-import { create } from "zustand";
-import { Preferences } from "@capacitor/preferences";
+import { create } from 'zustand';
+import axios from 'axios';
 
-const getTokenFromStorage = async () => {
-  const { value } = await Preferences.get({ key: "token" });
-  return value || null;
-};
+const api = axios.create({
+  baseURL: 'http://localhost:8000', // Update to 'http://172.20.10.18:8000' for Capacitor
+  withCredentials: true,
+  headers: {
+    'Content-Type': 'application/json',
+    Accept: 'application/json',
+  },
+});
 
-const setTokenInStorage = async (token) => {
-  await Preferences.set({ key: "token", value: token });
-};
-
-const removeTokenFromStorage = async () => {
-  await Preferences.remove({ key: "token" });
-};
-
-const useAuthStore = create((set, get) => ({
-  token: null,
+const useAuthStore = create((set) => ({
   user: null,
   isAuthenticated: false,
-
+  setUser: (user) => set({ user, isAuthenticated: !!user }),
+  clearAuth: () => set({ user: null, isAuthenticated: false }),
   init: async () => {
-    const token = await getTokenFromStorage();
-    if (token) {
-      set({ token, isAuthenticated: true });
+    try {
+      console.log('[AuthStore] Checking session');
+      await api.get('/sanctum/csrf-cookie');
+      const xsrfToken = document.cookie
+        .split('; ')
+        .find((row) => row.startsWith('XSRF-TOKEN='))
+        ?.split('=')[1];
+      const headers = {
+        'X-XSRF-TOKEN': xsrfToken ? decodeURIComponent(xsrfToken) : '',
+      };
+      const response = await api.get('/api/user', { headers });
+      console.log('[AuthStore] Session active, user:', response.data);
+      set({ user: response.data, isAuthenticated: true });
+      return response.data;
+    } catch (error) {
+      console.log('[AuthStore] No active session:', error.response?.status);
+      set({ user: null, isAuthenticated: false });
+      return null;
     }
   },
-
-  setToken: async (token) => {
-    set({ token, isAuthenticated: !!token });
-    await setTokenInStorage(token);
-    console.log("setToken - New state:", token);
+  login: async (email, password) => {
+    try {
+      console.log('[AuthStore] Fetching CSRF cookie for login');
+      await api.get('/sanctum/csrf-cookie');
+      const xsrfToken = document.cookie
+        .split('; ')
+        .find((row) => row.startsWith('XSRF-TOKEN='))
+        ?.split('=')[1];
+      const headers = {
+        'X-XSRF-TOKEN': xsrfToken ? decodeURIComponent(xsrfToken) : '',
+      };
+      const response = await api.post('/api/login', { email, password }, { headers });
+      console.log('[AuthStore] Login response:', response.data);
+      const user = response.data.user || response.data;
+      set({ user, isAuthenticated: true });
+      return response.data;
+    } catch (error) {
+      console.error('[AuthStore] Login failed:', error.response?.data?.message, error.response?.status);
+      throw error;
+    }
   },
-
-  clearToken: async () => {
-    set({ token: null, user: null, isAuthenticated: false });
-    await removeTokenFromStorage();
+  logout: async () => {
+    try {
+      console.log('[AuthStore] Fetching CSRF cookie for logout');
+      await api.get('/sanctum/csrf-cookie');
+      const xsrfToken = document.cookie
+        .split('; ')
+        .find((row) => row.startsWith('XSRF-TOKEN='))
+        ?.split('=')[1];
+      const headers = {
+        'X-XSRF-TOKEN': xsrfToken ? decodeURIComponent(xsrfToken) : '',
+      };
+      const response = await api.post('/api/logout', {}, { headers });
+      console.log('[AuthStore] Logout successful:', response.data);
+      set({ user: null, isAuthenticated: false });
+      return response.data;
+    } catch (error) {
+      console.error('[AuthStore] Logout failed:', error.response?.data?.message, error.response?.status);
+      throw error;
+    }
   },
-
-  setUser: (user) => set({ user }),
 }));
 
 export default useAuthStore;

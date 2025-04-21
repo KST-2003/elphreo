@@ -1,18 +1,20 @@
-import React from "react";
-import { Navigate } from "react-router-dom";
-import useAuthStore from "./store/useAuthStore";
+// PrivateRoute.jsx
+import React from 'react';
+import { Navigate } from 'react-router-dom';
+import useAuthStore from './store/useAuthStore';
 
 const PrivateRoute = ({ children }) => {
-  const { token, isAuthenticated } = useAuthStore();
+  const { user } = useAuthStore();
 
-  console.log("[PrivateRoute] token:", token);
-  console.log("[PrivateRoute] isAuthenticated:", isAuthenticated);
+  // if (user === null) {
+  //   return <div>Loading...</div>; // Prevent premature redirect
+  // }
 
-  if (!token || !isAuthenticated) {
-    return <Navigate to="/login" />;
-  }
-
-  return children;
+  return user ? children : <Navigate to="/login" />;
 };
 
 export default PrivateRoute;
+
+
+
+
