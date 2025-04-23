@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import axios from 'axios';
 
 const api = axios.create({
-  baseURL: 'http://localhost:8000', // Update to 'http://172.20.10.18:8000' for Capacitor
+  baseURL: 'http://192.168.1.34:8000', // Update to 'http://192.168.1.34:8000' for Capacitor
   withCredentials: true,
   headers: {
     'Content-Type': 'application/json',

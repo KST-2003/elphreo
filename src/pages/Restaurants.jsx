@@ -3,6 +3,8 @@ import { Link } from 'react-router-dom';
 import useRestaurantStore from '../store/useRestaurantStore';
 import useAuthStore from '../store/useAuthStore';
 import SafeTopWrapper from '../components/SafeTopWrapper';
+import { HeartIcon as HeartSolidIcon } from '@heroicons/react/24/solid';
+import { HeartIcon as HeartOutlineIcon } from '@heroicons/react/24/outline';
 
 const Restaurants = () => {
   const { user } = useAuthStore();
@@ -16,10 +18,14 @@ const Restaurants = () => {
     selectedCategory,
     loading,
     error,
+    restaurantBookmarks,
     fetchRestaurants,
     fetchDistricts,
     fetchSubdistricts,
     fetchCategories,
+    fetchBookmarks,
+    bookmarkRestaurant,
+    unbookmarkRestaurant,
     setLocation,
     setSelectedDistrict,
     setSelectedSubdistrict,
@@ -27,14 +33,14 @@ const Restaurants = () => {
   } = useRestaurantStore();
 
   const [initialized, setInitialized] = useState(false);
-  const [failedImages, setFailedImages] = useState(new Set()); // Track failed image URLs
+  const [failedImages, setFailedImages] = useState(new Set());
 
   useEffect(() => {
     if (user && !initialized) {
       console.log('[Restaurants] Initializing data');
       const initializeData = async () => {
         await setLocation(13.6615, 100.4033);
-        await Promise.all([fetchDistricts(), fetchCategories()]);
+        await Promise.all([fetchDistricts(), fetchCategories(), fetchBookmarks()]);
         await fetchRestaurants();
         setInitialized(true);
       };
@@ -67,13 +73,37 @@ const Restaurants = () => {
     }
   };
 
-  // Log restaurants data for debugging
+  const toggleBookmark = (restaurantID, bookmark) => {
+    if (bookmark) {
+      unbookmarkRestaurant(bookmark.id);
+    } else {
+      bookmarkRestaurant(restaurantID);
+    }
+  };
+
   useEffect(() => {
     console.log('[Restaurants] Restaurants data:', restaurants);
-  }, [restaurants]);
+    console.log('[Restaurants] Bookmarks:', restaurantBookmarks);
+  }, [restaurants, restaurantBookmarks]);
+
+  const renderStars = (rating) => {
+    const ratingValue = parseFloat(rating) || 0;
+    const fullStars = Math.floor(ratingValue);
+    const stars = [];
+    
+    for (let i = 0; i < fullStars; i++) {
+      stars.push(<span key={`star-${i}`} className="text-yellow-500 text-sm">★</span>);
+    }
+    
+    for (let i = fullStars; i < 5; i++) {
+      stars.push(<span key={`star-${i}`} className="text-gray-300 text-sm">★</span>);
+    }
+    
+    return <div className="flex">{stars}</div>;
+  };
 
   return (
-    <div className="max-w-xs sm:max-w-sm md:max-w-md mx-auto mt-3 overflow-y-auto h-screen no-scrollbar">
+    <div className="max-w-md mx-auto mt-3 overflow-y-auto h-screen no-scrollbar">
       <SafeTopWrapper>
         <h1 className="text-2xl font-bold text-center mb-4">Where to Eat</h1>
       </SafeTopWrapper>
@@ -122,9 +152,12 @@ const Restaurants = () => {
           >
             <option value="all">All Cuisines</option>
             {Array.isArray(categories) && categories.length > 0 ? (
-              categories.map((category) => (
-                <option key={category.categoryID} value={category.categoryID}>
-                  {category.categoryTitle}
+              subdistricts.map((subdistrict) => (
+                <option
+                  key={subdistrict.subdistrictID}
+                  value={subdistrict.subdistrictID}
+                >
+                  {subdistrict.subdistrictName}
                 </option>
               ))
             ) : (
@@ -137,7 +170,7 @@ const Restaurants = () => {
             className="bg-red-500 hover:bg-red-600 text-white py-2 rounded-lg"
             disabled={loading}
           >
-            {loading ? 'Searching...' : 'Search'}
+            Search
           </button>
         </div>
       </div>
@@ -157,44 +190,54 @@ const Restaurants = () => {
           }
           const imageUrl = restaurant.photos?.[0]?.url;
           const isFailed = failedImages.has(imageUrl);
+          const bookmark = restaurantBookmarks.find((b) => b.content_id === restaurant.restaurantID);
           return (
-            <Link
-              to={`/restaurants/${restaurant.restaurantID}`}
+            <div
               key={restaurant.restaurantID}
-              onClick={() => console.log('[Restaurants] Navigating to restaurantID:', restaurant.restaurantID)}
-              className="block bg-white rounded-lg shadow p-4 flex flex-col space-y-2 hover:shadow-md transition"
+              className="relative bg-white rounded-xl shadow-md overflow-hidden m-2 mb-4"
             >
-              <div className="flex items-center space-x-4">
+              <Link
+                to={`/restaurants/${restaurant.restaurantID}`}
+                onClick={() => console.log('[Restaurants] Navigating to restaurantID:', restaurant.restaurantID)}
+                className="block"
+              >
                 {imageUrl && !isFailed ? (
                   <img
                     src={imageUrl}
                     alt={restaurant.restaurantName || 'Restaurant image'}
-                    className="w-20 h-20 object-cover rounded-lg"
+                    className="w-full h-40 object-cover rounded-t-xl"
                     onError={(e) => {
                       console.error('[Restaurants] Failed to load photo for restaurantID:', restaurant.restaurantID, 'URL:', imageUrl);
                       setFailedImages((prev) => new Set(prev).add(imageUrl));
                     }}
                   />
                 ) : (
-                  <div className="w-20 h-20 flex items-center justify-center bg-gray-200 rounded-lg">
+                  <div className="w-full h-40 flex items-center justify-center bg-gray-200 rounded-t-xl">
                     <span className="text-gray-500 text-sm">{restaurant.restaurantName || 'No image'}</span>
                   </div>
                 )}
-                <div>
-                  <h2 className="text-lg font-semibold">{restaurant.restaurantName}</h2>
-                  <p className="text-sm text-gray-600">{restaurant.thaiName}</p>
-                  <p className="text-sm text-yellow-500">
-                    Rating: {restaurant.rating || 'N/A'}
+                <div className="p-4">
+                  <h2 className="text-lg font-bold text-gray-800">{restaurant.restaurantName || 'Unknown Restaurant'}</h2>
+                  <p className="text-sm text-gray-600">
+                    {restaurant.subdistrict?.district?.districtName || 'Unknown District'},{' '}
+                    {restaurant.subdistrict?.subdistrictName || 'Unknown Subdistrict'}
                   </p>
+                  <div className="flex items-center mt-1">
+                    {renderStars(restaurant.rating)}
+                  </div>
                 </div>
-              </div>
-              <p className="text-sm text-gray-500">
-                {restaurant.subdistrict?.district?.districtName || 'Unknown District'}
-              </p>
-              <p className="text-sm text-gray-500">
-                {restaurant.category?.categoryTitle || 'Uncategorized'}
-              </p>
-            </Link>
+              </Link>
+              <button
+                onClick={() => toggleBookmark(restaurant.restaurantID, bookmark)}
+                className="absolute top-2 right-2 bg-white rounded-full p-2 shadow"
+              >
+                {bookmark ? (
+                  <HeartSolidIcon className="h-5 w-5 text-red-500" />
+                ) : (
+                  <HeartOutlineIcon className="h-5 w-5 text-gray-400" />
+                )}
+              </button>
+            </div>
           );
         })}
       </div>

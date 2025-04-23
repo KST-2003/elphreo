@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import axios from 'axios';
 
 const api = axios.create({
-  baseURL: 'http://localhost:8000',
+  baseURL: 'http://192.168.1.34:8000',
   withCredentials: true,
   headers: {
     'Content-Type': 'application/json',
@@ -22,6 +22,8 @@ const usePlaceStore = create((set, get) => ({
   error: null,
   fetchInProgress: false,
   placeDetails: null,
+  placeBookmarks: [],
+  cachedPlaceDetails: {},
 
   setSelectedDistrict: (district) => {
     set({ selectedDistrict: district, selectedSubdistrict: 'all' });
@@ -86,9 +88,6 @@ const usePlaceStore = create((set, get) => ({
         },
       });
       console.log('[PlaceStore] Places fetched:', response.data);
-      response.data.forEach((place) => {
-        console.log(`[PlaceStore] Place ID: ${place.placeID}, Photos:`, place.photos);
-      });
       set({
         places: Array.isArray(response.data) ? response.data : [],
         loading: false,
@@ -174,31 +173,104 @@ const usePlaceStore = create((set, get) => ({
 
   fetchPlaceDetails: async (id) => {
     set({ loading: true, error: null });
-  
     try {
-      console.log('[usePlaceStore] Fetching CSRF cookie');
+      console.log('[PlaceStore] Fetching CSRF cookie for place:', id);
       await api.get('/sanctum/csrf-cookie');
-  
       const xsrfToken = document.cookie
         .split('; ')
         .find((row) => row.startsWith('XSRF-TOKEN='))
         ?.split('=')[1];
-  
       const headers = {
         'X-XSRF-TOKEN': xsrfToken ? decodeURIComponent(xsrfToken) : '',
       };
-  
       const response = await api.get(`/api/places/${id}`, { headers });
-  
-      console.log('[usePlaceStore] Place details fetched:', response.data);
-      set({ placeDetails: response.data, loading: false });
-  
-    } catch (err) {
-      console.error('[usePlaceStore] Error fetching place details:', err.response?.data || err.message);
+      console.log('[PlaceStore] Place details fetched:', response.data);
+      set((state) => ({
+        placeDetails: response.data,
+        cachedPlaceDetails: { ...state.cachedPlaceDetails, [id]: response.data },
+        loading: false,
+      }));
+      return response.data;
+    } catch (error) {
+      console.error('[PlaceStore] Error fetching place details:', error.response?.data || error.message);
       set({ error: 'Failed to fetch place details', loading: false });
+      throw error;
     }
-  }
-  
+  },
+
+  fetchBookmarks: async () => {
+    set({ loading: true, error: null });
+    try {
+      console.log('[PlaceStore] Fetching bookmarks');
+      await api.get('/sanctum/csrf-cookie');
+      const xsrfToken = document.cookie
+        .split('; ')
+        .find((row) => row.startsWith('XSRF-TOKEN='))
+        ?.split('=')[1];
+      const headers = {
+        'X-XSRF-TOKEN': xsrfToken ? decodeURIComponent(xsrfToken) : '',
+      };
+      const response = await api.get('/api/bookmarks', { headers });
+      console.log('[PlaceStore] Bookmarks fetched:', response.data);
+      const placeBookmarks = response.data.filter(bookmark => bookmark.content_type === 'place');
+      set({ placeBookmarks, loading: false });
+    } catch (error) {
+      console.error('[PlaceStore] Error fetching bookmarks:', error.response?.data || error.message);
+      set({ error: 'Failed to fetch bookmarks', loading: false, placeBookmarks: [] });
+    }
+  },
+
+  bookmarkPlace: async (placeID) => {
+    set({ loading: true, error: null });
+    try {
+      console.log('[PlaceStore] Bookmarking place:', placeID);
+      await api.get('/sanctum/csrf-cookie');
+      const xsrfToken = document.cookie
+        .split('; ')
+        .find((row) => row.startsWith('XSRF-TOKEN='))
+        ?.split('=')[1];
+      const headers = {
+        'X-XSRF-TOKEN': xsrfToken ? decodeURIComponent(xsrfToken) : '',
+      };
+      const response = await api.post(
+        '/api/bookmarks',
+        { content_type: 'place', content_id: placeID },
+        { headers }
+      );
+      console.log('[PlaceStore] Bookmark added:', response.data);
+      set((state) => ({
+        placeBookmarks: [...state.placeBookmarks, response.data.bookmark],
+        loading: false,
+      }));
+    } catch (error) {
+      console.error('[PlaceStore] Error bookmarking place:', error.response?.data || error.message);
+      set({ error: 'Failed to bookmark place', loading: false });
+    }
+  },
+
+  unbookmarkPlace: async (bookmarkId) => {
+    set({ loading: true, error: null });
+    try {
+      console.log('[PlaceStore] Unbookmarking place, bookmark ID:', bookmarkId);
+      await api.get('/sanctum/csrf-cookie');
+      const xsrfToken = document.cookie
+        .split('; ')
+        .find((row) => row.startsWith('XSRF-TOKEN='))
+        ?.split('=')[1];
+      const headers = {
+        'X-XSRF-TOKEN': xsrfToken ? decodeURIComponent(xsrfToken) : '',
+      };
+      await api.delete(`/api/bookmarks/${bookmarkId}`, { headers });
+      console.log('[PlaceStore] Bookmark removed:', bookmarkId);
+      set((state) => ({
+        placeBookmarks: state.placeBookmarks.filter((bookmark) => bookmark.id !== bookmarkId),
+        loading: false,
+      }));
+    } catch (error) {
+      console.error('[PlaceStore] Error unbookmarking place:', error.response?.data || error.message);
+      set({ error: 'Failed to unbookmark place', loading: false });
+    }
+  },
 }));
 
 export default usePlaceStore;
