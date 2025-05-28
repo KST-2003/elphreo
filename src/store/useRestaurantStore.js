@@ -1,14 +1,5 @@
 import { create } from 'zustand';
-import axios from 'axios';
-
-const api = axios.create({
-  baseURL: 'http://192.168.1.34:8000',
-  withCredentials: true,
-  headers: {
-    'Content-Type': 'application/json',
-    Accept: 'application/json',
-  },
-});
+import api from '../api/api'; // Use centralized Axios instance
 
 const useRestaurantStore = create((set, get) => ({
   restaurants: [],
@@ -39,18 +30,12 @@ const useRestaurantStore = create((set, get) => ({
   setLocation: async (latitude, longitude) => {
     try {
       console.log('[RestaurantStore] Setting location:', { latitude, longitude });
-      await api.get('/sanctum/csrf-cookie');
-      const xsrfToken = document.cookie
-        .split('; ')
-        .find((row) => row.startsWith('XSRF-TOKEN='))
-        ?.split('=')[1];
-      const headers = {
-        'X-XSRF-TOKEN': xsrfToken ? decodeURIComponent(xsrfToken) : '',
-      };
-      const response = await api.post('/api/restaurants/location', { latitude, longitude }, { headers });
+      const response = await api.post('/api/restaurants/location', { latitude, longitude });
       console.log('[RestaurantStore] Location set:', response.data);
+      return response.data;
     } catch (error) {
       console.error('[RestaurantStore] Error setting location:', error.response?.data || error.message);
+      throw error;
     }
   },
 
@@ -66,33 +51,30 @@ const useRestaurantStore = create((set, get) => ({
 
     set({ loading: true, error: null, fetchInProgress: true });
     try {
-      await api.get('/sanctum/csrf-cookie');
-      const xsrfToken = document.cookie
-        .split('; ')
-        .find((row) => row.startsWith('XSRF-TOKEN='))
-        ?.split('=')[1];
-      const headers = {
-        'X-XSRF-TOKEN': xsrfToken ? decodeURIComponent(xsrfToken) : '',
-      };
       console.log('[RestaurantStore] Fetching restaurants with params:', {
         district: districtToUse,
         subdistrict: subdistrictToUse,
         category: categoryToUse,
       });
       const response = await api.get('/api/restaurants/search', {
-        headers,
         params: {
           district: districtToUse,
           subdistrict: subdistrictToUse,
           category: categoryToUse,
         },
       });
-      console.log('[RestaurantStore] Restaurants fetched:', response.data);
+      const restaurants = Array.isArray(response.data.data)
+        ? response.data.data
+        : Array.isArray(response.data)
+        ? response.data
+        : [];
+      console.log('[RestaurantStore] Restaurants fetched:', restaurants);
       set({
-        restaurants: Array.isArray(response.data) ? response.data : [],
+        restaurants,
         loading: false,
         fetchInProgress: false,
       });
+      return restaurants;
     } catch (error) {
       const message = error.response?.data?.message || 'Failed to fetch restaurants';
       console.error('[RestaurantStore] Error fetching restaurants:', message, {
@@ -100,90 +82,79 @@ const useRestaurantStore = create((set, get) => ({
         data: error.response?.data,
       });
       set({ error: message, loading: false, restaurants: [], fetchInProgress: false });
+      throw error;
     }
   },
 
   fetchDistricts: async () => {
     try {
       console.log('[RestaurantStore] Fetching districts');
-      await api.get('/sanctum/csrf-cookie');
-      const xsrfToken = document.cookie
-        .split('; ')
-        .find((row) => row.startsWith('XSRF-TOKEN='))
-        ?.split('=')[1];
-      const headers = {
-        'X-XSRF-TOKEN': xsrfToken ? decodeURIComponent(xsrfToken) : '',
-      };
-      const response = await api.get('/api/districts', { headers });
-      console.log('[RestaurantStore] Districts fetched:', response.data);
-      set({ districts: Array.isArray(response.data) ? response.data : [] });
+      const response = await api.get('/api/districts');
+      const districts = Array.isArray(response.data.data)
+        ? response.data.data
+        : Array.isArray(response.data)
+        ? response.data
+        : [];
+      console.log('[RestaurantStore] Districts fetched:', districts);
+      set({ districts });
+      return districts;
     } catch (error) {
       console.error('[RestaurantStore] Error fetching districts:', error.response?.data || error.message);
       set({ districts: [] });
+      throw error;
     }
   },
 
   fetchSubdistricts: async (districtID) => {
     if (!districtID || districtID === 'nearme' || districtID === 'all') {
       set({ subdistricts: [] });
-      return;
+      return [];
     }
 
     try {
       console.log('[RestaurantStore] Fetching subdistricts for district:', districtID);
-      await api.get('/sanctum/csrf-cookie');
-      const xsrfToken = document.cookie
-        .split('; ')
-        .find((row) => row.startsWith('XSRF-TOKEN='))
-        ?.split('=')[1];
-      const headers = {
-        'X-XSRF-TOKEN': xsrfToken ? decodeURIComponent(xsrfToken) : '',
-      };
       const response = await api.get('/api/subdistricts', {
-        headers,
         params: { districtID },
       });
-      console.log('[RestaurantStore] Subdistricts fetched:', response.data);
-      set({ subdistricts: Array.isArray(response.data) ? response.data : [] });
+      const subdistricts = Array.isArray(response.data.data)
+        ? response.data.data
+        : Array.isArray(response.data)
+        ? response.data
+        : [];
+      console.log('[RestaurantStore] Subdistricts fetched:', subdistricts);
+      set({ subdistricts });
+      return subdistricts;
     } catch (error) {
       console.error('[RestaurantStore] Error fetching subdistricts:', error.response?.data || error.message);
       set({ subdistricts: [] });
+      throw error;
     }
   },
 
   fetchCategories: async () => {
     try {
       console.log('[RestaurantStore] Fetching restaurant categories');
-      await api.get('/sanctum/csrf-cookie');
-      const xsrfToken = document.cookie
-        .split('; ')
-        .find((row) => row.startsWith('XSRF-TOKEN='))
-        ?.split('=')[1];
-      const headers = {
-        'X-XSRF-TOKEN': xsrfToken ? decodeURIComponent(xsrfToken) : '',
-      };
-      const response = await api.get('/api/restaurant-categories', { headers });
-      console.log('[RestaurantStore] Categories fetched:', response.data);
-      set({ categories: Array.isArray(response.data) ? response.data : [] });
+      const response = await api.get('/api/restaurant-categories');
+      const categories = Array.isArray(response.data.data)
+        ? response.data.data
+        : Array.isArray(response.data)
+        ? response.data
+        : [];
+      console.log('[RestaurantStore] Categories fetched:', categories);
+      set({ categories });
+      return categories;
     } catch (error) {
       console.error('[RestaurantStore] Error fetching categories:', error.response?.data || error.message);
       set({ categories: [] });
+      throw error;
     }
   },
 
   fetchRestaurantDetails: async (id) => {
     set({ loading: true, error: null });
     try {
-      console.log('[RestaurantStore] Fetching CSRF cookie for restaurant:', id);
-      await api.get('/sanctum/csrf-cookie');
-      const xsrfToken = document.cookie
-        .split('; ')
-        .find((row) => row.startsWith('XSRF-TOKEN='))
-        ?.split('=')[1];
-      const headers = {
-        'X-XSRF-TOKEN': xsrfToken ? decodeURIComponent(xsrfToken) : '',
-      };
-      const response = await api.get(`/api/restaurants/${id}`, { headers });
+      console.log('[RestaurantStore] Fetching restaurant details:', id);
+      const response = await api.get(`/api/restaurants/${id}`);
       console.log('[RestaurantStore] Restaurant details fetched:', response.data);
       set((state) => ({
         restaurantDetails: response.data,
@@ -202,21 +173,15 @@ const useRestaurantStore = create((set, get) => ({
     set({ loading: true, error: null });
     try {
       console.log('[RestaurantStore] Fetching bookmarks');
-      await api.get('/sanctum/csrf-cookie');
-      const xsrfToken = document.cookie
-        .split('; ')
-        .find((row) => row.startsWith('XSRF-TOKEN='))
-        ?.split('=')[1];
-      const headers = {
-        'X-XSRF-TOKEN': xsrfToken ? decodeURIComponent(xsrfToken) : '',
-      };
-      const response = await api.get('/api/bookmarks', { headers });
-      console.log('[RestaurantStore] Bookmarks fetched:', response.data);
-      const restaurantBookmarks = response.data.filter(bookmark => bookmark.content_type === 'restaurant');
+      const response = await api.get('/api/bookmarks');
+      const restaurantBookmarks = response.data.filter((bookmark) => bookmark.content_type === 'restaurant');
+      console.log('[RestaurantStore] Bookmarks fetched:', restaurantBookmarks);
       set({ restaurantBookmarks, loading: false });
+      return restaurantBookmarks;
     } catch (error) {
       console.error('[RestaurantStore] Error fetching bookmarks:', error.response?.data || error.message);
       set({ error: 'Failed to fetch bookmarks', loading: false, restaurantBookmarks: [] });
+      throw error;
     }
   },
 
@@ -224,27 +189,20 @@ const useRestaurantStore = create((set, get) => ({
     set({ loading: true, error: null });
     try {
       console.log('[RestaurantStore] Bookmarking restaurant:', restaurantID);
-      await api.get('/sanctum/csrf-cookie');
-      const xsrfToken = document.cookie
-        .split('; ')
-        .find((row) => row.startsWith('XSRF-TOKEN='))
-        ?.split('=')[1];
-      const headers = {
-        'X-XSRF-TOKEN': xsrfToken ? decodeURIComponent(xsrfToken) : '',
-      };
-      const response = await api.post(
-        '/api/bookmarks',
-        { content_type: 'restaurant', content_id: restaurantID },
-        { headers }
-      );
+      const response = await api.post('/api/bookmarks', {
+        content_type: 'restaurant',
+        content_id: restaurantID,
+      });
       console.log('[RestaurantStore] Bookmark added:', response.data);
       set((state) => ({
         restaurantBookmarks: [...state.restaurantBookmarks, response.data.bookmark],
         loading: false,
       }));
+      return response.data.bookmark;
     } catch (error) {
       console.error('[RestaurantStore] Error bookmarking restaurant:', error.response?.data || error.message);
       set({ error: 'Failed to bookmark restaurant', loading: false });
+      throw error;
     }
   },
 
@@ -252,23 +210,17 @@ const useRestaurantStore = create((set, get) => ({
     set({ loading: true, error: null });
     try {
       console.log('[RestaurantStore] Unbookmarking restaurant, bookmark ID:', bookmarkId);
-      await api.get('/sanctum/csrf-cookie');
-      const xsrfToken = document.cookie
-        .split('; ')
-        .find((row) => row.startsWith('XSRF-TOKEN='))
-        ?.split('=')[1];
-      const headers = {
-        'X-XSRF-TOKEN': xsrfToken ? decodeURIComponent(xsrfToken) : '',
-      };
-      await api.delete(`/api/bookmarks/${bookmarkId}`, { headers });
+      await api.delete(`/api/bookmarks/${bookmarkId}`);
       console.log('[RestaurantStore] Bookmark removed:', bookmarkId);
       set((state) => ({
         restaurantBookmarks: state.restaurantBookmarks.filter((bookmark) => bookmark.id !== bookmarkId),
         loading: false,
       }));
+      return bookmarkId;
     } catch (error) {
       console.error('[RestaurantStore] Error unbookmarking restaurant:', error.response?.data || error.message);
       set({ error: 'Failed to unbookmark restaurant', loading: false });
+      throw error;
     }
   },
 }));

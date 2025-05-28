@@ -153,7 +153,7 @@ function Home() {
 
   return (
     <>
-      <SafeTopWrapper>
+      {/* <SafeTopWrapper> */}
         <div className="max-w-xs sm:max-w-sm md:max-w-md mx-auto mt-3 search-bar">
           <div className="flex items-center bg-gray-600 rounded-full">
             <svg
@@ -188,7 +188,7 @@ function Home() {
             </button>
           </div>
         </div>
-      </SafeTopWrapper>
+      {/* </SafeTopWrapper> */}
 
       <div
         ref={containerRef}
@@ -252,3 +252,6 @@ function Home() {
 }
 
 export default Home;
+
+
+

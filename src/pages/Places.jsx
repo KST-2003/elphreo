@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import usePlaceStore from '../store/usePlaceStore';
 import useAuthStore from '../store/useAuthStore';
+import api from '../api/api';
 import SafeTopWrapper from '../components/SafeTopWrapper';
 import { HeartIcon as HeartSolidIcon } from '@heroicons/react/24/solid';
 import { HeartIcon as HeartOutlineIcon } from '@heroicons/react/24/outline';
@@ -39,20 +40,73 @@ const Places = () => {
     if (user && !initialized) {
       console.log('[Places] Initializing data');
       const initializeData = async () => {
-        await setLocation(13.6615, 100.4033);
-        await Promise.all([fetchDistricts(), fetchCategories(), fetchBookmarks()]);
-        await fetchPlaces();
-        setInitialized(true);
+        try {
+          // Debug session
+          const userResponse = await api.get('/api/user');
+          console.log('[Places] User session:', userResponse.data);
+
+          // Debug cookies
+          let debugResponse;
+          try {
+            debugResponse = await api.get('/api/debug-cookies');
+            console.log('[Places] Debug cookies:', debugResponse.data);
+          } catch (debugError) {
+            console.error('[Places] Debug cookies error:', debugError.response?.data || debugError.message);
+          }
+
+          // Get user location or fallback to default
+          try {
+            const position = await new Promise((resolve, reject) => {
+              if (!navigator.geolocation) {
+                reject(new Error('Geolocation is not supported by this browser'));
+                return;
+              }
+              navigator.geolocation.getCurrentPosition(resolve, reject);
+            });
+            const { latitude, longitude } = position.coords;
+            console.log('[Places] User location obtained:', { latitude, longitude });
+            await setLocation(latitude, longitude);
+          } catch (locationError) {
+            console.warn('[Places] Failed to get user location:', locationError.message);
+            console.log('[Places] Falling back to default location (13.6615, 100.4033)');
+            await setLocation(13.6615, 100.4033);
+          }
+
+          // Fetch districts, categories, bookmarks
+          try {
+            const [districtsResponse, categoriesResponse, bookmarksResponse] = await Promise.all([
+              fetchDistricts(),
+              fetchCategories(),
+              fetchBookmarks(),
+            ]);
+            console.log('[Places] Districts response:', districtsResponse);
+            console.log('[Places] Categories response:', categoriesResponse);
+            console.log('[Places] Bookmarks response:', bookmarksResponse);
+          } catch (fetchError) {
+            console.error('[Places] Fetch error:', fetchError.response?.data || fetchError.message);
+          }
+
+          // Fetch places
+          try {
+            await fetchPlaces();
+          } catch (placesError) {
+            console.error('[Places] Fetch places error:', placesError.response?.data || placesError.message);
+          }
+
+          setInitialized(true);
+        } catch (error) {
+          console.error('[Places] Initialization error:', error.response?.data || error.message);
+        }
       };
       initializeData();
     }
-  }, [user, initialized]);
+  }, [user, initialized, setLocation, fetchDistricts, fetchCategories, fetchBookmarks, fetchPlaces]);
 
   useEffect(() => {
     if (initialized && selectedDistrict !== 'nearme' && selectedDistrict !== 'all') {
       fetchSubdistricts(selectedDistrict);
     }
-  }, [selectedDistrict, initialized]);
+  }, [selectedDistrict, initialized, fetchSubdistricts]);
 
   const handleSearch = () => {
     console.log('[Places] Searching with filters:', {
@@ -84,29 +138,30 @@ const Places = () => {
   useEffect(() => {
     console.log('[Places] Places data:', places);
     console.log('[Places] Bookmarks:', placeBookmarks);
-  }, [places, placeBookmarks]);
+    console.log('[Places] Districts:', districts);
+  }, [places, placeBookmarks, districts]);
 
   const renderStars = (rating) => {
     const ratingValue = parseFloat(rating) || 0;
     const fullStars = Math.floor(ratingValue);
     const stars = [];
-    
+
     for (let i = 0; i < fullStars; i++) {
       stars.push(<span key={`star-${i}`} className="text-yellow-500 text-sm">★</span>);
     }
-    
+
     for (let i = fullStars; i < 5; i++) {
       stars.push(<span key={`star-${i}`} className="text-gray-300 text-sm">★</span>);
     }
-    
+
     return <div className="flex">{stars}</div>;
   };
 
   return (
     <div className="max-w-md mx-auto mt-3 overflow-y-auto h-screen no-scrollbar">
-      <SafeTopWrapper>
+      {/* <SafeTopWrapper> */}
         <h1 className="text-2xl font-bold text-center mb-4">Where to Go</h1>
-      </SafeTopWrapper>
+      {/* </SafeTopWrapper> */}
       {/* Filter Section */}
       <div className="mb-6 bg-white p-4 rounded-lg shadow">
         <div className="flex flex-col space-y-4">
@@ -133,10 +188,7 @@ const Places = () => {
             <option value="all">All Subdistricts</option>
             {Array.isArray(subdistricts) && subdistricts.length > 0 ? (
               subdistricts.map((subdistrict) => (
-                <option
-                  key={subdistrict.subdistrictID}
-                  value={subdistrict.subdistrictID}
-                >
+                <option key={subdistrict.subdistrictID} value={subdistrict.subdistrictID}>
                   {subdistrict.subdistrictName}
                 </option>
               ))
@@ -176,7 +228,7 @@ const Places = () => {
       {error && <p className="text-red-500 text-center mb-4">{error}</p>}
 
       {/* Places List */}
-      <div className="space-y-4 mb-28">
+      <div className="space-y-4 mb-10 pb-30">
         {places.length === 0 && !loading && !error && (
           <p className="text-center text-gray-500">No places found.</p>
         )}
@@ -204,7 +256,12 @@ const Places = () => {
                     alt={place.placeName || 'Place image'}
                     className="w-full h-40 object-cover rounded-t-xl"
                     onError={(e) => {
-                      console.error('[Places] Failed to load photo for placeID:', place.placeID, 'URL:', imageUrl);
+                      console.error(
+                        '[Places] Failed to load photo for placeID:',
+                        place.placeID,
+                        'URL:',
+                        imageUrl
+                      );
                       setFailedImages((prev) => new Set(prev).add(imageUrl));
                     }}
                   />
@@ -219,11 +276,7 @@ const Places = () => {
                     {place.subdistrict?.district?.districtName || 'Unknown District'},{' '}
                     {place.subdistrict?.subdistrictName || 'Unknown Subdistrict'}
                   </p>
-                  {/* <p className="text-sm text-gray-600">2 km to city</p> */}
-                  {/* <p className="text-sm font-semibold text-gray-800 mt-1">$180 /per night</p> */}
-                  <div className="flex items-center mt-1">
-                    {renderStars(place.rating)}
-                  </div>
+                  <div className="flex items-center mt-1">{renderStars(place.rating)}</div>
                 </div>
               </Link>
               <button

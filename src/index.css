@@ -24,3 +24,13 @@ body::-webkit-scrollbar {
   display: none; /* Chrome, Safari, and Opera */
 }
 
+.pheight{
+  height:75vh;
+}
+
+.fixed-safe-top {
+  position: fixed;
+  top: constant(safe-area-inset-top, 0); /* Fallback for older iOS */
+  top: env(safe-area-inset-top, 0); /* Modern standard */
+  margin: 0.9rem;
+}

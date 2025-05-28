@@ -10,7 +10,7 @@ import { AiFillHome } from "react-icons/ai";
 
 function Navbar() {
   return (
-    <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 flex justify-around items-center py-4 pb-6">
+    <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 flex justify-around items-center py-4 pb-6 z-20">
       <Link to="/" className="text-gray-600 hover:text-black">
       <AiFillHome className="w-6 h-6"/>
       </Link>

@@ -170,15 +170,14 @@ const PlaceDetails = () => {
 
   return (
     <div className="max-w-md mx-auto mt-0 overflow-y-auto h-screen no-scrollbar bg-gray-50 relative">
-      <div className="fixed top-4 left-4 z-50">
+      <div className="z-50 fixed-safe-top">
         <button
           onClick={() => navigate(-1)}
-          className="bg-white p-3 rounded-lg shadow"
+          className="bg-teal-500 p-3 rounded-lg shadow"
         >
-          <ArrowLeftIcon className="h-5 w-5 text-gray-600" />
+          <ArrowLeftIcon className="h-5 w-5 text-white" />
         </button>
       </div>
-      
       <div className="relative">
         <div className="embla overflow-hidden" ref={emblaRef}>
           <div className="embla__container flex">

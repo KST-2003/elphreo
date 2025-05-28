@@ -1,14 +1,5 @@
 import { create } from 'zustand';
-import axios from 'axios';
-
-const api = axios.create({
-  baseURL: 'http://192.168.1.34:8000', // Update to 'http://192.168.1.34:8000' for Capacitor
-  withCredentials: true,
-  headers: {
-    'Content-Type': 'application/json',
-    Accept: 'application/json',
-  },
-});
+import api from '../api/api';
 
 const useAuthStore = create((set) => ({
   user: null,
@@ -18,36 +9,20 @@ const useAuthStore = create((set) => ({
   init: async () => {
     try {
       console.log('[AuthStore] Checking session');
-      await api.get('/sanctum/csrf-cookie');
-      const xsrfToken = document.cookie
-        .split('; ')
-        .find((row) => row.startsWith('XSRF-TOKEN='))
-        ?.split('=')[1];
-      const headers = {
-        'X-XSRF-TOKEN': xsrfToken ? decodeURIComponent(xsrfToken) : '',
-      };
-      const response = await api.get('/api/user', { headers });
+      const response = await api.get('/api/user');
       console.log('[AuthStore] Session active, user:', response.data);
       set({ user: response.data, isAuthenticated: true });
       return response.data;
     } catch (error) {
-      console.log('[AuthStore] No active session:', error.response?.status);
+      console.log('[AuthStore] No active session:', error.response?.status, error.response?.data);
       set({ user: null, isAuthenticated: false });
       return null;
     }
   },
   login: async (email, password) => {
     try {
-      console.log('[AuthStore] Fetching CSRF cookie for login');
-      await api.get('/sanctum/csrf-cookie');
-      const xsrfToken = document.cookie
-        .split('; ')
-        .find((row) => row.startsWith('XSRF-TOKEN='))
-        ?.split('=')[1];
-      const headers = {
-        'X-XSRF-TOKEN': xsrfToken ? decodeURIComponent(xsrfToken) : '',
-      };
-      const response = await api.post('/api/login', { email, password }, { headers });
+      console.log('[AuthStore] Logging in:', { email });
+      const response = await api.post('/api/login', { email, password });
       console.log('[AuthStore] Login response:', response.data);
       const user = response.data.user || response.data;
       set({ user, isAuthenticated: true });
@@ -59,16 +34,8 @@ const useAuthStore = create((set) => ({
   },
   logout: async () => {
     try {
-      console.log('[AuthStore] Fetching CSRF cookie for logout');
-      await api.get('/sanctum/csrf-cookie');
-      const xsrfToken = document.cookie
-        .split('; ')
-        .find((row) => row.startsWith('XSRF-TOKEN='))
-        ?.split('=')[1];
-      const headers = {
-        'X-XSRF-TOKEN': xsrfToken ? decodeURIComponent(xsrfToken) : '',
-      };
-      const response = await api.post('/api/logout', {}, { headers });
+      console.log('[AuthStore] Logging out');
+      const response = await api.post('/api/logout', {});
       console.log('[AuthStore] Logout successful:', response.data);
       set({ user: null, isAuthenticated: false });
       return response.data;

@@ -39,20 +39,45 @@ const Restaurants = () => {
     if (user && !initialized) {
       console.log('[Restaurants] Initializing data');
       const initializeData = async () => {
-        await setLocation(13.6615, 100.4033);
-        await Promise.all([fetchDistricts(), fetchCategories(), fetchBookmarks()]);
-        await fetchRestaurants();
-        setInitialized(true);
+        try {
+          // Get user location or fallback to default
+          try {
+            const position = await new Promise((resolve, reject) => {
+              if (!navigator.geolocation) {
+                reject(new Error('Geolocation is not supported by this browser'));
+                return;
+              }
+              navigator.geolocation.getCurrentPosition(resolve, reject);
+            });
+            const { latitude, longitude } = position.coords;
+            console.log('[Restaurants] User location obtained:', { latitude, longitude });
+            await setLocation(latitude, longitude);
+          } catch (locationError) {
+            console.warn('[Restaurants] Failed to get user location:', locationError.message);
+            console.log('[Restaurants] Falling back to default location (13.6615, 100.4033)');
+            await setLocation(13.6615, 100.4033);
+          }
+
+          // Fetch districts, categories, bookmarks
+          await Promise.all([fetchDistricts(), fetchCategories(), fetchBookmarks()]);
+
+          // Fetch restaurants
+          await fetchRestaurants();
+
+          setInitialized(true);
+        } catch (error) {
+          console.error('[Restaurants] Initialization error:', error);
+        }
       };
       initializeData();
     }
-  }, [user, initialized]);
+  }, [user, initialized, setLocation, fetchDistricts, fetchCategories, fetchBookmarks, fetchRestaurants]);
 
   useEffect(() => {
     if (initialized && selectedDistrict !== 'nearme' && selectedDistrict !== 'all') {
       fetchSubdistricts(selectedDistrict);
     }
-  }, [selectedDistrict, initialized]);
+  }, [selectedDistrict, initialized, fetchSubdistricts]);
 
   const handleSearch = () => {
     console.log('[Restaurants] Searching with filters:', {
@@ -90,23 +115,23 @@ const Restaurants = () => {
     const ratingValue = parseFloat(rating) || 0;
     const fullStars = Math.floor(ratingValue);
     const stars = [];
-    
+
     for (let i = 0; i < fullStars; i++) {
       stars.push(<span key={`star-${i}`} className="text-yellow-500 text-sm">★</span>);
     }
-    
+
     for (let i = fullStars; i < 5; i++) {
       stars.push(<span key={`star-${i}`} className="text-gray-300 text-sm">★</span>);
     }
-    
+
     return <div className="flex">{stars}</div>;
   };
 
   return (
     <div className="max-w-md mx-auto mt-3 overflow-y-auto h-screen no-scrollbar">
-      <SafeTopWrapper>
+      {/* <SafeTopWrapper> */}
         <h1 className="text-2xl font-bold text-center mb-4">Where to Eat</h1>
-      </SafeTopWrapper>
+      {/* </SafeTopWrapper> */}
       {/* Filter Section */}
       <div className="mb-6 bg-white p-4 rounded-lg shadow">
         <div className="flex flex-col space-y-4">
@@ -152,12 +177,12 @@ const Restaurants = () => {
           >
             <option value="all">All Cuisines</option>
             {Array.isArray(categories) && categories.length > 0 ? (
-              subdistricts.map((subdistrict) => (
+              categories.map((category) => (
                 <option
-                  key={subdistrict.subdistrictID}
-                  value={subdistrict.subdistrictID}
+                  key={category.categoryID}
+                  value={category.categoryID}
                 >
-                  {subdistrict.subdistrictName}
+                  {category.categoryTitle}
                 </option>
               ))
             ) : (
@@ -179,7 +204,7 @@ const Restaurants = () => {
       {error && <p className="text-red-500 text-center mb-4">{error}</p>}
 
       {/* Restaurants List */}
-      <div className="space-y-4 mb-28">
+      <div className="space-y-4 mb-10 pb-30">
         {restaurants.length === 0 && !loading && !error && (
           <p className="text-center text-gray-500">No restaurants found.</p>
         )}

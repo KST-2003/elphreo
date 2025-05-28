@@ -5,15 +5,17 @@ import useAuthStore from "../store/useAuthStore";
 import usePlaceStore from "../store/usePlaceStore";
 import useRestaurantStore from "../store/useRestaurantStore";
 import { HeartIcon as HeartSolidIcon } from "@heroicons/react/24/solid";
+import { HeartIcon as HeartOutlineIcon } from "@heroicons/react/24/outline";
+import ConfirmModal from "../components/ConfirmModal.jsx";
 
 function Profile() {
   const [activeTab, setActiveTab] = useState("Places");
   const [loading, setLoading] = useState(true);
   const [placeDetails, setPlaceDetails] = useState([]);
   const [restaurantDetails, setRestaurantDetails] = useState([]);
-  const [showModal, setShowModal] = useState(false);
-  const [bookmarkToRemove, setBookmarkToRemove] = useState(null);
-  const [isPlaceBookmark, setIsPlaceBookmark] = useState(true);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [modalBookmarkId, setModalBookmarkId] = useState(null);
+  const [modalType, setModalType] = useState(null); // 'place' or 'restaurant'
 
   // Use refs to track initialization state
   const initialized = useRef(false);
@@ -45,7 +47,7 @@ function Profile() {
   // First useEffect: Initialize auth and fetch bookmarks only once
   useEffect(() => {
     if (initialized.current) return;
-    
+
     const initialize = async () => {
       try {
         await init();
@@ -61,7 +63,7 @@ function Profile() {
     };
 
     initialize();
-  }, [isAuthenticated, user]);
+  }, [isAuthenticated, user, init, fetchPlaceBookmarks, fetchRestaurantBookmarks]);
 
   // Second useEffect: Fetch place details
   useEffect(() => {
@@ -90,7 +92,7 @@ function Profile() {
     };
 
     fetchPlaceDetailsForBookmarks();
-  }, [placeBookmarks]);
+  }, [placeBookmarks, fetchPlaceDetails]);
 
   // Third useEffect: Fetch restaurant details
   useEffect(() => {
@@ -119,7 +121,7 @@ function Profile() {
     };
 
     fetchRestaurantDetailsForBookmarks();
-  }, [restaurantBookmarks]);
+  }, [restaurantBookmarks, fetchRestaurantDetails]);
 
   // Reset fetch flags when bookmarks change
   useEffect(() => {
@@ -134,66 +136,66 @@ function Profile() {
     const ratingValue = parseFloat(rating) || 0;
     const fullStars = Math.floor(ratingValue);
     const stars = [];
-    
+
     for (let i = 0; i < fullStars; i++) {
       stars.push(<span key={`star-${i}`} className="text-yellow-500 text-sm">★</span>);
     }
-    
+
     for (let i = fullStars; i < 5; i++) {
       stars.push(<span key={`star-${i}`} className="text-gray-300 text-sm">★</span>);
     }
-    
+
     return <div className="flex">{stars}</div>;
   };
 
-  const handleConfirmRemoveBookmark = (e, bookmarkId, isPlace) => {
+  const openModal = (bookmarkId, type) => {
+    setModalBookmarkId(bookmarkId);
+    setModalType(type);
+    setIsModalOpen(true);
+  };
+
+  const closeModal = () => {
+    setIsModalOpen(false);
+    setModalBookmarkId(null);
+    setModalType(null);
+  };
+
+  const handleConfirmRemove = async () => {
+    if (!modalBookmarkId || !modalType) return;
+
+    if (modalType === 'place') {
+      const previousPlaceDetails = [...placeDetails];
+      setPlaceDetails(placeDetails.filter((item) => item.id !== modalBookmarkId));
+      try {
+        await unbookmarkPlace(modalBookmarkId);
+      } catch (error) {
+        console.error("[Profile] Error removing place bookmark:", error);
+        setPlaceDetails(previousPlaceDetails);
+      }
+    } else if (modalType === 'restaurant') {
+      const previousRestaurantDetails = [...restaurantDetails];
+      setRestaurantDetails(restaurantDetails.filter((item) => item.id !== modalBookmarkId));
+      try {
+        await unbookmarkRestaurant(modalBookmarkId);
+      } catch (error) {
+        console.error("[Profile] Error removing restaurant bookmark:", error);
+        setRestaurantDetails(previousRestaurantDetails);
+      }
+    }
+
+    closeModal();
+  };
+
+  const handleRemovePlaceBookmark = (e, bookmarkId) => {
     e.preventDefault();
     e.stopPropagation();
-    setBookmarkToRemove(bookmarkId);
-    setIsPlaceBookmark(isPlace);
-    setShowModal(true);
+    openModal(bookmarkId, 'place');
   };
 
-  const handleRemovePlaceBookmark = async () => {
-    const bookmarkId = bookmarkToRemove;
-    const previousPlaceDetails = [...placeDetails];
-    setPlaceDetails(placeDetails.filter((item) => item.id !== bookmarkId));
-    setShowModal(false);
-
-    try {
-      await unbookmarkPlace(bookmarkId);
-    } catch (error) {
-      console.error("[Profile] Error removing place bookmark:", error);
-      setPlaceDetails(previousPlaceDetails);
-    }
-  };
-
-  const handleRemoveRestaurantBookmark = async () => {
-    const bookmarkId = bookmarkToRemove;
-    const previousRestaurantDetails = [...restaurantDetails];
-    setRestaurantDetails(restaurantDetails.filter((item) => item.id !== bookmarkId));
-    setShowModal(false);
-
-    try {
-      await unbookmarkRestaurant(bookmarkId);
-    } catch (error) {
-      console.error("[Profile] Error removing restaurant bookmark:", error);
-      setRestaurantDetails(previousRestaurantDetails);
-    }
-  };
-
-  const handleConfirm = async () => {
-    if (isPlaceBookmark) {
-      await handleRemovePlaceBookmark();
-    } else {
-      await handleRemoveRestaurantBookmark();
-    }
-  };
-
-  const handleCancel = () => {
-    setShowModal(false);
-    setBookmarkToRemove(null);
-    setIsPlaceBookmark(true);
+  const handleRemoveRestaurantBookmark = (e, bookmarkId) => {
+    e.preventDefault();
+    e.stopPropagation();
+    openModal(bookmarkId, 'restaurant');
   };
 
   if (loading) {
@@ -214,35 +216,6 @@ function Profile() {
 
   return (
     <div className="min-h-screen bg-white">
-      {/* Modal */}
-      {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
-          {/* Background Overlay */}
-          <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" />
-          
-          {/* Modal Content */}
-          <div className="relative bg-white rounded-xl shadow-lg p-6 max-w-sm w-full mx-4">
-            <h3 className="text-lg font-bold text-gray-800 mb-4">
-              Are you sure you want to remove this Bookmark?
-            </h3>
-            <div className="flex justify-end space-x-3">
-              <button
-                onClick={handleCancel}
-                className="px-4 py-2 text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleConfirm}
-                className="px-4 py-2 text-white bg-red-500 rounded-lg hover:bg-red-600"
-              >
-                Yes
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Profile Header */}
       <div className="p-4 border-b border-gray-200">
         <div className="flex items-center space-x-3">
@@ -310,7 +283,7 @@ function Profile() {
       </div>
 
       {/* Tab Content */}
-      <div className={`p-4 max-w-md mx-auto ${showModal ? "pointer-events-none" : ""}`}>
+      <div className="p-4 max-w-md mx-auto overflow-y-auto pheight no-scrollbar pb-30 mb-10">
         {activeTab === "Places" && (
           <div className="space-y-4">
             {placeDetails.length === 0 ? (
@@ -358,7 +331,7 @@ function Profile() {
                     </div>
                   </Link>
                   <button
-                    onClick={(e) => handleConfirmRemoveBookmark(e, item.id, true)}
+                    onClick={(e) => handleRemovePlaceBookmark(e, item.id)}
                     className="absolute top-2 right-2 bg-white rounded-full p-2 shadow"
                   >
                     <HeartSolidIcon className="h-5 w-5 text-red-500" />
@@ -416,7 +389,7 @@ function Profile() {
                     </div>
                   </Link>
                   <button
-                    onClick={(e) => handleConfirmRemoveBookmark(e, item.id, false)}
+                    onClick={(e) => handleRemoveRestaurantBookmark(e, item.id)}
                     className="absolute top-2 right-2 bg-white rounded-full p-2 shadow"
                   >
                     <HeartSolidIcon className="h-5 w-5 text-red-500" />
@@ -427,6 +400,14 @@ function Profile() {
           </div>
         )}
       </div>
+
+      {/* Confirmation Modal */}
+      <ConfirmModal
+        isOpen={isModalOpen}
+        onClose={closeModal}
+        onConfirm={handleConfirmRemove}
+        message="Are you sure you want to remove this bookmark?"
+      />
     </div>
   );
 }
